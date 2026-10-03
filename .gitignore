@@ -1,0 +1,17 @@
+@"
+.env
+*.db
+.venv/
+__pycache__/
+.pytest_cache/
+instance/
+"@ | Set-Content .gitignore
+
+@"
+SECRET_KEY=change-me
+JWT_SECRET_KEY=change-me
+GEMINI_API_KEY=your-key-here
+DATABASE_URL=sqlite:///app.db
+"@ | Set-Content .env.example
+
+Copy-Item .env.example .env
