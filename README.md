@@ -1,7 +1,7 @@
 # Retro Games Support Bot
 A customer-support chatbot for an online retro video game store, built on a REST API with JWT authentication. Customers ask in natural language about **their own** orders, shipments, returns and purchase history, and an LLM answers by calling a fixed set of scoped tools. It never sees, and cannot ask for, anyone else's data.
 
-![Chat: shipping and purchase stats](docs/chat-shipping.png)
+![Chat: shipping and purchase stats](docs/chat_shipping.png)
 
 ## Features
 
