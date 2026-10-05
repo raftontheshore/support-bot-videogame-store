@@ -1,5 +1,4 @@
 # Retro Games Support Bot
-
 A customer-support chatbot for an online retro video game store, built on a REST API with JWT authentication. Customers ask in natural language about **their own** orders, shipments, returns and purchase history, and an LLM answers by calling a fixed set of scoped tools. It never sees, and cannot ask for, anyone else's data.
 
 ![Chat: shipping and purchase stats](docs/chat-shipping.png)
@@ -194,7 +193,6 @@ tests/             auth, isolation, returns, chat tools, front-end
 ```
 
 ## Known limitations and roadmap
-
 - The pending-return store is in memory (lost on restart); production would use a DB table or Redis.
 - Conversation history is sent by the client. It only affects that user's own conversation, but a server-side store would be cleaner.
 - No per-user rate limiting on `/ask`; Flask-Limiter would be the next addition, since every message costs model calls.
@@ -202,5 +200,4 @@ tests/             auth, isolation, returns, chat tools, front-end
 - Planned: admin role with RBAC and audit log, Postgres + Alembic migrations, Docker, and a WhatsApp/Telegram channel.
 
 ## Author
-
 [@raftontheshore](https://github.com/raftontheshore)
