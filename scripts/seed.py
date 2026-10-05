@@ -114,6 +114,11 @@ CUSTOMERS = [
     {"name": "Carla Díaz", "email": "carla@example.com", "prefs": ["Platformer", "Puzzle"], "peak": 1},
 ]
 
+# Every customer always gets one order in each of these states, placed recently,
+# so demos like "where is my latest shipped order?" or "I want to return my last
+# delivered order" always have data to work with. (status, days ago)
+RECENT_ORDERS = [("shipped", 5), ("pending", 2), ("delivered", 12)]
+
 LOCATIONS = [
     ("3400", "Corrientes", "Corrientes"),
     ("3500", "Resistencia", "Chaco"),
@@ -172,7 +177,7 @@ def pick_product(prefs, games, games_by_genre, hardware):
     return random.choice(games)
 
 
-def make_order(user, prefs, created, games, games_by_genre, hardware):
+def make_order(user, prefs, created, games, games_by_genre, hardware, status=None):
     order = Order(user=user, address=user.address, order_date=created, total=0)
 
     wanted = random.randint(1, 3)
@@ -192,7 +197,9 @@ def make_order(user, prefs, created, games, games_by_genre, hardware):
     order.total = round(total, 2)
 
     age_days = (NOW - created).days
-    if age_days > 21:
+    if status is not None:
+        order.status = status
+    elif age_days > 21:
         order.status = "cancelled" if random.random() < 0.08 else "delivered"
     else:
         order.status = random.choices(["pending", "shipped", "delivered"], weights=[30, 40, 30])[0]
@@ -248,6 +255,7 @@ def seed():
         user.set_password(PASSWORD)
         db.session.add(user)
 
+        # history spread over the last 12 months, with one peak month per customer
         for _ in range(ORDERS_PER_USER):
             offset = cfg["peak"] if random.random() < 0.4 else random.randint(0, 11)
             created = random_date_in_month(offset)
@@ -255,6 +263,14 @@ def seed():
             db.session.add(order)
             if order.status == "delivered" and (NOW - created).days > 14:
                 delivered_old.append((order, created))
+
+        # guaranteed recent orders: one shipped, one pending, one delivered
+        for status, days_ago in RECENT_ORDERS:
+            created = NOW - timedelta(days=days_ago, hours=random.randint(0, 6))
+            order = make_order(
+                user, cfg["prefs"], created, games, games_by_genre, hardware, status=status
+            )
+            db.session.add(order)
 
     for order, created in random.sample(delivered_old, min(3, len(delivered_old))):
         db.session.add(

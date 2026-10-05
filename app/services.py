@@ -164,7 +164,8 @@ def list_returns(user_id):
     return [_return_dict(r) for r in rows]
 
 
-def create_return(user_id, order_id, reason):
+def validate_return(user_id, order_id, reason):
+    """All the checks for a return, without writing anything."""
     if not isinstance(reason, str) or not 5 <= len(reason.strip()) <= 255:
         raise ValidationError("reason must be a text between 5 and 255 characters")
 
@@ -173,8 +174,12 @@ def create_return(user_id, order_id, reason):
         raise ConflictError("Only delivered orders can be returned")
     if any(r.status == "pending" for r in order.returns):
         raise ConflictError("This order already has a pending return")
+    return order, reason.strip()
 
-    ret = ReturnRequest(order=order, reason=reason.strip(), status="pending")
+
+def create_return(user_id, order_id, reason):
+    order, clean_reason = validate_return(user_id, order_id, reason)
+    ret = ReturnRequest(order=order, reason=clean_reason, status="pending")
     db.session.add(ret)
     db.session.commit()
     return _return_dict(ret)
@@ -240,3 +245,48 @@ def purchases_by_month(user_id):
 
 def top_genres(user_id, limit=5):
     return purchase_stats(user_id, "genre")[:limit]
+
+def spending_summary(user_id, year=None):
+    """Orders count, total spent and average ticket (cancelled orders excluded)."""
+    query = db.session.query(
+        func.count(Order.id), func.coalesce(func.sum(Order.total), 0)
+    ).filter(Order.user_id == user_id, Order.status != "cancelled")
+    if year is not None:
+        query = query.filter(extract("year", Order.order_date) == year)
+
+    orders, total = query.one()
+    total = round(float(total), 2)
+    return {
+        "year": year,
+        "orders": int(orders),
+        "total_spent": total,
+        "average_order": round(total / orders, 2) if orders else 0.0,
+    }
+
+
+def top_products(user_id, limit=5):
+    """Products this user bought the most (units), cancelled orders excluded."""
+    limit = min(max(limit or 5, 1), 20)
+    units = func.sum(OrderItem.quantity)
+    spent = func.sum(OrderItem.subtotal)
+
+    rows = (
+        db.session.query(Product.name, Product.console, units.label("units"), spent.label("spent"))
+        .select_from(Order)
+        .join(OrderItem, OrderItem.order_id == Order.id)
+        .join(Product, Product.id == OrderItem.product_id)
+        .filter(Order.user_id == user_id, Order.status != "cancelled")
+        .group_by(Product.id, Product.name, Product.console)
+        .order_by(units.desc(), Product.name)
+        .limit(limit)
+        .all()
+    )
+    return [
+        {
+            "product": r.name,
+            "console": r.console,
+            "units": int(r.units),
+            "spent": round(float(r.spent), 2),
+        }
+        for r in rows
+    ]

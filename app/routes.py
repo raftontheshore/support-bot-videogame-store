@@ -1,7 +1,7 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
-from app import services
+from app import chat, services
 from app.services import ValidationError
 
 bp = Blueprint("api", __name__)
@@ -20,6 +20,9 @@ def page_args():
 def health():
     return jsonify(status="ok")
 
+@bp.get("/")
+def index():
+    return current_app.send_static_file("index.html")
 
 # ---------- public ----------
 
@@ -88,3 +91,18 @@ def stats_purchases():
     year = request.args.get("year", type=int)
     results = services.purchase_stats(current_user_id(), group_by, year)
     return jsonify(group_by=group_by, year=year, results=results)
+
+@bp.post("/ask")
+@jwt_required()
+def ask():
+    data = request.get_json(silent=True) or {}
+    user_id = current_user_id()
+    reply = chat.ask(user_id, data.get("message"), data.get("history"))
+    return jsonify(reply=reply, pending_action=chat.get_pending(user_id))
+
+
+@bp.post("/ask/confirm")
+@jwt_required()
+def ask_confirm():
+    created = chat.confirm_pending_return(current_user_id())
+    return jsonify(message="Return request submitted", return_request=created), 201
